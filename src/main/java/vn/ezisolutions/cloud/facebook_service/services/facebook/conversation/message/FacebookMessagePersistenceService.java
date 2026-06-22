@@ -23,6 +23,7 @@ public class FacebookMessagePersistenceService {
     private final FbPageRepository pageRepository;
     private final FbConversationRepository conversationRepository;
     private final FbMessageRepository messageRepository;
+    private final FacebookMessengerProfileService profileService;
 
     @Transactional
     public void saveInbound(FbMessageEvent event) {
@@ -51,6 +52,7 @@ public class FacebookMessagePersistenceService {
         conversation.setLastMessageAt(occurredAt);
         conversation.setLastInboundAt(occurredAt);
         conversation.setUnreadCount(conversation.getUnreadCount() == null ? 1 : conversation.getUnreadCount() + 1);
+        profileService.enrichIfMissing(conversation, page.getFbPageId());
         FbConversation savedConversation = conversationRepository.save(conversation);
 
         FbMessage.MessageType messageType = toMessageType(event.getType());

@@ -34,6 +34,11 @@ public class FacebookClientConfig {
         return createClient(factory, FacebookUserGateway.class);
     }
 
+    @Bean("facebookOAuthGateway")
+    public FacebookOAuthGateway facebookOAuthGateway(HttpServiceProxyFactory factory) {
+        return createClient(factory, FacebookOAuthGateway.class);
+    }
+
     @Bean("facebookPageGateway")
     public FacebookPageGateway facebookPageGateway(HttpServiceProxyFactory factory) {
         return createClient(factory, FacebookPageGateway.class);
@@ -47,6 +52,11 @@ public class FacebookClientConfig {
     @Bean("facebookMessageGateway")
     public FacebookMessageGateway facebookMessageGateway(HttpServiceProxyFactory factory) {
         return createClient(factory, FacebookMessageGateway.class);
+    }
+
+    @Bean("facebookMessengerProfileGateway")
+    public FacebookMessengerProfileGateway facebookMessengerProfileGateway(HttpServiceProxyFactory factory) {
+        return createClient(factory, FacebookMessengerProfileGateway.class);
     }
 
     @Bean("facebookCommentGateway")

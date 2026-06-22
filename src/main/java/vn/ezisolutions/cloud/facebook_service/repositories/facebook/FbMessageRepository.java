@@ -13,5 +13,7 @@ import java.util.UUID;
 public interface FbMessageRepository extends JpaRepository<FbMessage, UUID> {
     Page<FbMessage> findByConversationIdOrderByOccurredAtAsc(UUID conversationId, Pageable pageable);
 
+    Page<FbMessage> findByConversationIdAndPageIdOrderByOccurredAtAsc(UUID conversationId, UUID pageId, Pageable pageable);
+
     Optional<FbMessage> findByEventId(String eventId);
 }

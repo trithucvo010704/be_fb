@@ -8,6 +8,7 @@ import vn.ezisolutions.cloud.facebook_service.core.BaseResponse;
 import vn.ezisolutions.cloud.facebook_service.core.exceptions.CustomException;
 import vn.ezisolutions.cloud.facebook_service.core.utils.SecurityUtils;
 import vn.ezisolutions.cloud.facebook_service.dto.request.DemoLoginRequest;
+import vn.ezisolutions.cloud.facebook_service.dto.response.AuthorizedUserResponse;
 import vn.ezisolutions.cloud.facebook_service.services.security.DemoAuthService;
 
 @RestController
@@ -25,7 +26,7 @@ public class AuthController {
     public BaseResponse me() throws CustomException {
         AuthorizedUser user = SecurityUtils.getCurrentAuthorizedUser()
                 .orElseThrow(() -> new CustomException(401, "Unauthenticated"));
-        return BaseResponse.success(user);
+        return BaseResponse.success(AuthorizedUserResponse.from(user));
     }
 
     @PostMapping("/logout")

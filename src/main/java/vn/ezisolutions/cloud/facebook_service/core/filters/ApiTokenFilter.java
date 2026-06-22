@@ -37,6 +37,7 @@ public class ApiTokenFilter extends OncePerRequestFilter {
                 || path.equals("/api/facebook/oauth/url")
                 || path.startsWith("/api/facebook/oauth/callback")
                 || path.startsWith("/api/facebook/webhook")
+                || path.equals("/api/data-deletion")
                 || path.startsWith("/api/public/")
                 || path.equals("/privacy-policy")
                 || path.equals("/data-deletion");

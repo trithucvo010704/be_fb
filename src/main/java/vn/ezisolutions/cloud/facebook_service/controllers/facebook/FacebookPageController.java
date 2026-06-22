@@ -8,6 +8,7 @@ import vn.ezisolutions.cloud.facebook_service.core.BaseResponse;
 import vn.ezisolutions.cloud.facebook_service.core.exceptions.CustomException;
 import vn.ezisolutions.cloud.facebook_service.core.utils.SecurityUtils;
 import vn.ezisolutions.cloud.facebook_service.dto.request.FacebookPageConnectRequest;
+import vn.ezisolutions.cloud.facebook_service.dto.response.FacebookConnectedPageResponse;
 import vn.ezisolutions.cloud.facebook_service.entity.facebook.FbPage;
 import vn.ezisolutions.cloud.facebook_service.repositories.facebook.FbPageRepository;
 import vn.ezisolutions.cloud.facebook_service.services.facebook.auth.FacebookPageConnectService;
@@ -29,11 +30,28 @@ public class FacebookPageController {
 
     @GetMapping("/api/pages")
     public BaseResponse pages() {
-        return BaseResponse.success(pageRepository.findByConnectionStatusOrderByUpdatedAtDesc(FbPage.ConnectionStatus.CONNECTED));
+        return BaseResponse.success(pageRepository.findByConnectionStatusOrderByUpdatedAtDesc(FbPage.ConnectionStatus.CONNECTED)
+                .stream()
+                .map(this::toResponse)
+                .toList());
     }
 
     @GetMapping("/api/pages/{pageId}")
     public BaseResponse pageDetail(@PathVariable String pageId) throws CustomException {
-        return BaseResponse.success(pageAccessGuard.requireConnectedPage(pageId));
+        return BaseResponse.success(toResponse(pageAccessGuard.requireConnectedPage(pageId)));
+    }
+
+    private FacebookConnectedPageResponse toResponse(FbPage page) {
+        return new FacebookConnectedPageResponse(
+                page.getId(),
+                page.getFbPageId(),
+                page.getPageName(),
+                page.getCategory(),
+                page.getTokenStatus().name(),
+                page.getConnectionStatus().name(),
+                page.getWebhookSubscribed(),
+                page.getGrantedPermissions(),
+                page.getMissingPermissions()
+        );
     }
 }

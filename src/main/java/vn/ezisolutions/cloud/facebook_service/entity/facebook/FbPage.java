@@ -1,6 +1,7 @@
 package vn.ezisolutions.cloud.facebook_service.entity.facebook;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.*;
 import lombok.*;
@@ -55,6 +56,7 @@ public class FbPage {
     private String connectedByUserId;
 
     @Column(name = "page_access_token_encrypted", nullable = false, columnDefinition = "TEXT")
+    @JsonIgnore
     private String pageAccessTokenEncrypted;
 
     @Enumerated(EnumType.STRING)
@@ -111,6 +113,7 @@ public class FbPage {
         CONNECTED, DISCONNECTED, MISSING_PERMISSION
     }
 
+    @JsonIgnore
     public String getPageAccessToken() {
         return pageAccessTokenEncrypted;
     }
@@ -127,6 +130,7 @@ public class FbPage {
         this.grantedPermissions = pagePermissions;
     }
 
+    @JsonIgnore
     public String getProjectId() {
         return connectedByUserId;
     }

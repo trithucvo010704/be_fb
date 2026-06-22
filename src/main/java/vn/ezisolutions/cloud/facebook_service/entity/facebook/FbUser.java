@@ -1,6 +1,7 @@
 package vn.ezisolutions.cloud.facebook_service.entity.facebook;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.*;
 import lombok.*;
@@ -45,6 +46,7 @@ public class FbUser {
     private String avatarUrl;
 
     @Column(name = "access_token_encrypted", nullable = false, columnDefinition = "TEXT")
+    @JsonIgnore
     private String accessTokenEncrypted;
 
     @Column(name = "token_expires_at")
@@ -88,6 +90,7 @@ public class FbUser {
         this.ownerUserId = ownerId;
     }
 
+    @JsonIgnore
     public String getAccessToken() {
         return accessTokenEncrypted;
     }

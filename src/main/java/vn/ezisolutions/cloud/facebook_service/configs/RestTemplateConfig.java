@@ -20,8 +20,8 @@ public class RestTemplateConfig {
         String baseUrl = facebookProperties.getGraphHost() + "/" + facebookProperties.getGraphVersion();
 
         SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
-        requestFactory.setConnectTimeout(5000); // 5 seconds
-        requestFactory.setReadTimeout(10000);   // 10 seconds
+        requestFactory.setConnectTimeout(5000);  // 5 seconds
+        requestFactory.setReadTimeout(30000);    // Facebook may fetch attachment URLs before responding.
 
         RestTemplate restTemplate = new RestTemplate(requestFactory);
         restTemplate.setUriTemplateHandler(new DefaultUriBuilderFactory(baseUrl));
