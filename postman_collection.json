@@ -1,0 +1,591 @@
+{
+  "info": {
+    "name": "Facebook Service - Ngrok App Review Test",
+    "_postman_id": "2f14c717-2ba8-4691-9a57-facebook-service",
+    "description": "Postman collection test local/ngrok flow: demo login, OAuth, pages, inbox, send message, publish post, data deletion, disconnect.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "https://YOUR-NGROK-DOMAIN.ngrok-free.app"
+    },
+    {
+      "key": "email",
+      "value": "reviewer@ezisolutions.tech"
+    },
+    {
+      "key": "password",
+      "value": "reviewer-password"
+    },
+    {
+      "key": "token",
+      "value": ""
+    },
+    {
+      "key": "pageId",
+      "value": ""
+    },
+    {
+      "key": "conversationId",
+      "value": ""
+    },
+    {
+      "key": "psid",
+      "value": ""
+    },
+    {
+      "key": "verifyToken",
+      "value": "PFIVShXYCLAwNYtV"
+    }
+  ],
+  "item": [
+    {
+      "name": "01 Demo Login",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/auth/demo-login",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "auth",
+            "demo-login"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "const json = pm.response.json();",
+              "pm.test('login success', () => pm.expect(json.status).to.eql(1));",
+              "const token = json.payload && (json.payload.token || json.payload.accessToken);",
+              "pm.expect(token, 'token').to.be.ok;",
+              "pm.collectionVariables.set('token', token);"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ]
+    },
+    {
+      "name": "02 Get OAuth URL",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/facebook/oauth/url",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "facebook",
+            "oauth",
+            "url"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "const json = pm.response.json();",
+              "pm.test('oauth url success', () => pm.expect(json.status).to.eql(1));",
+              "pm.test('oauth url exists', () => pm.expect(json.payload.url).to.include('facebook.com'));",
+              "console.log('Open this URL in browser:', json.payload.url);"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ]
+    },
+    {
+      "name": "03 List Connected Pages",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/pages",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "pages"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "const json = pm.response.json();",
+              "pm.test('pages success', () => pm.expect(json.status).to.eql(1));",
+              "const pages = Array.isArray(json.payload) ? json.payload : (json.payload && json.payload.content) || [];",
+              "if (pages.length > 0) {",
+              "  pm.collectionVariables.set('pageId', pages[0].fbPageId || pages[0].id);",
+              "  console.log('Saved pageId:', pm.collectionVariables.get('pageId'));",
+              "}"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ]
+    },
+    {
+      "name": "04 Page Detail",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/pages/{{pageId}}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "pages",
+            "{{pageId}}"
+          ]
+        }
+      }
+    },
+    {
+      "name": "05 Webhook Verify",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/base/facebook/webhooks?hub.mode=subscribe&hub.verify_token={{verifyToken}}&hub.challenge=123456",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "base",
+            "facebook",
+            "webhooks"
+          ],
+          "query": [
+            {
+              "key": "hub.mode",
+              "value": "subscribe"
+            },
+            {
+              "key": "hub.verify_token",
+              "value": "{{verifyToken}}"
+            },
+            {
+              "key": "hub.challenge",
+              "value": "123456"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "06 List Conversations",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/pages/{{pageId}}/conversations?page=1&limit=20",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "pages",
+            "{{pageId}}",
+            "conversations"
+          ],
+          "query": [
+            {
+              "key": "page",
+              "value": "1"
+            },
+            {
+              "key": "limit",
+              "value": "20"
+            }
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "const json = pm.response.json();",
+              "pm.test('conversations success', () => pm.expect(json.status).to.eql(1));",
+              "const content = json.payload && json.payload.content ? json.payload.content : [];",
+              "if (content.length > 0) {",
+              "  pm.collectionVariables.set('conversationId', content[0].id);",
+              "  pm.collectionVariables.set('psid', content[0].senderPsid);",
+              "  console.log('Saved conversationId:', content[0].id);",
+              "  console.log('Saved psid:', content[0].senderPsid);",
+              "}"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ]
+    },
+    {
+      "name": "07 List Messages",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/pages/{{pageId}}/conversations/{{conversationId}}/messages?page=1&limit=50",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "pages",
+            "{{pageId}}",
+            "conversations",
+            "{{conversationId}}",
+            "messages"
+          ],
+          "query": [
+            {
+              "key": "page",
+              "value": "1"
+            },
+            {
+              "key": "limit",
+              "value": "50"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "08 Send Text Message",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"recipientPsid\": \"{{psid}}\",\n  \"content\": \"Xin chao tu backend Postman test\",\n  \"messageType\": \"TEXT\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/pages/{{pageId}}/messages",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "pages",
+            "{{pageId}}",
+            "messages"
+          ]
+        }
+      }
+    },
+    {
+      "name": "09 Send Image Message",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"recipientPsid\": \"{{psid}}\",\n  \"content\": \"https://placehold.co/600x400.jpg\",\n  \"messageType\": \"IMAGE\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/pages/{{pageId}}/messages",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "pages",
+            "{{pageId}}",
+            "messages"
+          ]
+        }
+      }
+    },
+    {
+      "name": "10 Publish Text Post",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"content\": \"Test post text tu backend qua Postman\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/pages/{{pageId}}/posts",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "pages",
+            "{{pageId}}",
+            "posts"
+          ]
+        }
+      }
+    },
+    {
+      "name": "11 Publish Image Post",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"content\": \"Test post image tu backend qua Postman\",\n  \"imageUrls\": [\n    \"https://picsum.photos/800/600\"\n  ]\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/pages/{{pageId}}/posts",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "pages",
+            "{{pageId}}",
+            "posts"
+          ]
+        }
+      }
+    },
+    {
+      "name": "12 List Post History",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/pages/{{pageId}}/posts?page=1&limit=20",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "pages",
+            "{{pageId}}",
+            "posts"
+          ],
+          "query": [
+            {
+              "key": "page",
+              "value": "1"
+            },
+            {
+              "key": "limit",
+              "value": "20"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "13 Data Deletion JSON",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"requesterEmail\": \"reviewer@example.com\",\n  \"fbUserId\": \"test-fb-user\",\n  \"fbPageId\": \"{{pageId}}\",\n  \"note\": \"manual postman test\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/data-deletion",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "data-deletion"
+          ]
+        }
+      }
+    },
+    {
+      "name": "14 Privacy Policy",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/privacy-policy",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "privacy-policy"
+          ]
+        }
+      }
+    },
+    {
+      "name": "15 Data Deletion Page",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/data-deletion",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "data-deletion"
+          ]
+        }
+      }
+    },
+    {
+      "name": "16 Disconnect Page",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"reason\": \"manual postman ngrok test done\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/pages/{{pageId}}/disconnect",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "pages",
+            "{{pageId}}",
+            "disconnect"
+          ]
+        }
+      }
+    },
+    {
+      "name": "17 Publish After Disconnect Should Fail",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"content\": \"This should be blocked after disconnect\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/pages/{{pageId}}/posts",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "pages",
+            "{{pageId}}",
+            "posts"
+          ]
+        }
+      }
+    }
+  ]
+}
