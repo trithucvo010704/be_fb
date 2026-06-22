@@ -1,0 +1,16 @@
+{
+  "mcpServers": {
+	"local-mcp": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "mcp-remote",
+        "https://eziops.ezisolutions.tech/app-gw/mcp/lina",
+        "--header",
+        "X-MCP-TOKEN: Bearertokenadbabd",
+        "--header",
+        "X-CONVERSATION-ID: 6a05aad42e19ade910d720bd"
+      ]
+    }
+  }
+}

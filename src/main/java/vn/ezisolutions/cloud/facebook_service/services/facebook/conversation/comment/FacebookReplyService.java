@@ -1,0 +1,75 @@
+package vn.ezisolutions.cloud.facebook_service.services.facebook.conversation.comment;
+
+import lombok.RequiredArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Service;
+import vn.ezisolutions.cloud.facebook_service.core.exceptions.CustomException;
+import vn.ezisolutions.cloud.facebook_service.core.exceptions.FacebookApiException;
+import vn.ezisolutions.cloud.facebook_service.dto.response.FacebookErrorPayload;
+import vn.ezisolutions.cloud.facebook_service.dto.response.FbCommentResponse;
+import vn.ezisolutions.cloud.facebook_service.entity.facebook.FbComment;
+import vn.ezisolutions.cloud.facebook_service.entity.facebook.FbCommentLog;
+import vn.ezisolutions.cloud.facebook_service.repositories.facebook.FbCommentLogRepository;
+import vn.ezisolutions.cloud.facebook_service.repositories.facebook.FbCommentRepository;
+
+import java.time.LocalDateTime;
+import java.util.Map;
+import java.util.UUID;
+
+@Service
+@RequiredArgsConstructor
+public class FacebookReplyService {
+    private static final Logger logger = LoggerFactory.getLogger(FacebookReplyService.class);
+    private final FbCommentRepository fbCommentRepository;
+    private final FbCommentLogRepository fbCommentLogRepository;
+    private final FacebookCommentClientService facebookCommentClientService;
+
+    public void execute(String internalId, String fbCommentId, String message, String pageToken) throws CustomException {
+        String logPrefix = "[REPLY-" + fbCommentId + "]";
+
+        if (internalId == null || fbCommentId == null || pageToken == null || message == null || message.trim().isEmpty()) {
+            throw new CustomException(400, "Missing required parameters for Reply (id, fbCommentId, token, or message)");
+        }
+
+        FbComment comment = fbCommentRepository.findById(UUID.fromString(internalId))
+                .orElseThrow(() -> new CustomException(404, "Comment not found"));
+
+        try {
+            FbCommentResponse response = facebookCommentClientService.replyToComment(fbCommentId, message, pageToken);
+            logger.info("{} Success.", logPrefix);
+
+            comment.setIsReplied(true);
+            comment.setProcessedAt(LocalDateTime.now());
+            fbCommentRepository.save(comment);
+            saveLog(comment, FbCommentLog.Status.SUCCESS, response);
+
+        } catch (FacebookApiException e) {
+            int code = e.getFbErrorCode();
+            int subcode = e.getFbErrorSubcode();
+            String userMessage = e.getUserFriendlyMessage();
+            logger.warn("{} FB Error: {}", logPrefix, userMessage);
+
+            FbCommentLog.Status suggestedStatus = (code == 100 && subcode != 33)
+                    ? FbCommentLog.Status.SKIPPED
+                    : FbCommentLog.Status.FAILED;
+
+            FacebookErrorPayload cleanPayload = FacebookErrorPayload.from(e);
+            saveLog(comment, suggestedStatus, cleanPayload);
+        } catch (Exception e) {
+            logger.error("{} System Error: {}", logPrefix, e.getMessage(), e);
+            saveLog(comment, FbCommentLog.Status.FAILED, Map.of("error_type", "SYSTEM_ERROR", "message", e.getMessage()));
+        }
+    }
+
+    private void saveLog(FbComment comment, FbCommentLog.Status status, Object payload) {
+        FbCommentLog logEntry = FbCommentLog.builder()
+                .commentId(comment.getId())
+                .actionType(FbCommentLog.ActionType.REPLY_COMMENT)
+                .status(status)
+                .responsePayload(payload)
+                .createdAt(LocalDateTime.now())
+                .build();
+        fbCommentLogRepository.save(logEntry);
+    }
+}
