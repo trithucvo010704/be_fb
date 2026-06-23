@@ -1,13 +1,21 @@
 package vn.ezisolutions.cloud.facebook_service.services.facebook.auth;
 
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.client.RestTemplate;
 import vn.ezisolutions.cloud.facebook_service.core.AuthorizedUser;
 import vn.ezisolutions.cloud.facebook_service.core.exceptions.CustomException;
 import vn.ezisolutions.cloud.facebook_service.core.shared.FacebookConstants;
 import vn.ezisolutions.cloud.facebook_service.dto.response.FacebookConnectedPageResponse;
 import vn.ezisolutions.cloud.facebook_service.dto.response.FbPageInfoResponse;
+import vn.ezisolutions.cloud.facebook_service.dto.response.FbPagesDataResponse;
 import vn.ezisolutions.cloud.facebook_service.entity.facebook.FbPage;
 import vn.ezisolutions.cloud.facebook_service.entity.facebook.FbPageClient;
 import vn.ezisolutions.cloud.facebook_service.entity.facebook.FbUser;
@@ -16,7 +24,6 @@ import vn.ezisolutions.cloud.facebook_service.gateway.facebook.FacebookUserGatew
 import vn.ezisolutions.cloud.facebook_service.repositories.facebook.FbPageClientRepository;
 import vn.ezisolutions.cloud.facebook_service.repositories.facebook.FbPageRepository;
 import vn.ezisolutions.cloud.facebook_service.repositories.facebook.FbUserRepository;
-import vn.ezisolutions.cloud.facebook_service.services.security.TokenCryptoService;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -25,12 +32,15 @@ import java.util.List;
 @Service
 @RequiredArgsConstructor
 public class FacebookPageConnectService {
+    private static final Logger logger = LoggerFactory.getLogger(FacebookPageConnectService.class);
+
     private final FacebookUserGateway userGateway;
     private final FacebookPageGateway pageGateway;
     private final FbUserRepository userRepository;
     private final FbPageRepository pageRepository;
     private final FbPageClientRepository pageClientRepository;
-    private final TokenCryptoService tokenCryptoService;
+    @Qualifier("facebookRestTemplate")
+    private final RestTemplate facebookRestTemplate;
 
     @Transactional
     public List<FacebookConnectedPageResponse> connect(String userAccessToken, AuthorizedUser owner) throws CustomException {
@@ -41,32 +51,65 @@ public class FacebookPageConnectService {
         if (profile == null || profile.id() == null) {
             throw new CustomException(400, "Không lấy được thông tin Facebook user");
         }
+        logger.info("Facebook connect started for fbUserId={}, ownerUserId={}", profile.id(), owner.getId());
         LocalDateTime now = LocalDateTime.now();
         FbUser fbUser = userRepository.findByFbUserId(profile.id())
                 .orElseGet(FbUser::new);
         fbUser.setOwnerUserId(owner.getId());
         fbUser.setFbUserId(profile.id());
         fbUser.setName(profile.name() == null ? profile.id() : profile.name());
-        fbUser.setAccessTokenEncrypted(tokenCryptoService.encrypt(userAccessToken));
+        fbUser.setAccessToken(userAccessToken);
         fbUser.setTokenStatus(FbUser.TokenStatus.ACTIVE);
         FbUser savedUser = userRepository.save(fbUser);
 
-        var pagesResponse = pageGateway.getUserPages(
-                toBearer(userAccessToken),
-                FacebookConstants.PAGE_LIST_FIELDS,
-                100
+        List<FbPageInfoResponse> pages = fetchAllUserPages(userAccessToken);
+        logger.info("Facebook /me/accounts returned {} page(s) for fbUserId={}, ownerUserId={}",
+                pages.size(),
+                profile.id(),
+                owner.getId()
         );
-        List<FbPageInfoResponse> pages = pagesResponse == null || pagesResponse.data() == null
-                ? List.of()
-                : pagesResponse.data();
 
         List<FacebookConnectedPageResponse> result = new ArrayList<>();
         for (FbPageInfoResponse pageInfo : pages) {
+            if (pageInfo.id() == null || pageInfo.id().isBlank()) {
+                logger.warn("Skipping Facebook page without id for fbUserId={}, ownerUserId={}", profile.id(), owner.getId());
+                continue;
+            }
+            logger.info("Connecting Facebook page id={}, name={}, ownerUserId={}", pageInfo.id(), pageInfo.name(), owner.getId());
             FbPage page = upsertPage(pageInfo, savedUser, owner, now);
             upsertPageClient(page, savedUser, owner, now);
             result.add(toResponse(page));
         }
         return result;
+    }
+
+    private List<FbPageInfoResponse> fetchAllUserPages(String userAccessToken) {
+        List<FbPageInfoResponse> pages = new ArrayList<>();
+        String authHeader = toBearer(userAccessToken);
+        FbPagesDataResponse response = pageGateway.getUserPages(
+                authHeader,
+                FacebookConstants.PAGE_LIST_FIELDS,
+                100
+        );
+
+        while (response != null) {
+            if (response.data() != null) {
+                pages.addAll(response.data());
+            }
+            String next = response.paging() == null ? null : response.paging().next();
+            if (next == null || next.isBlank()) {
+                break;
+            }
+            HttpHeaders headers = new HttpHeaders();
+            headers.set(HttpHeaders.AUTHORIZATION, authHeader);
+            response = facebookRestTemplate.exchange(
+                    next,
+                    HttpMethod.GET,
+                    new HttpEntity<>(headers),
+                    FbPagesDataResponse.class
+            ).getBody();
+        }
+        return pages;
     }
 
     private FbPage upsertPage(FbPageInfoResponse pageInfo, FbUser user, AuthorizedUser owner, LocalDateTime now) {
@@ -76,7 +119,7 @@ public class FacebookPageConnectService {
         page.setCategory(pageInfo.category());
         page.setConnectedByFbUserId(user.getId());
         page.setConnectedByUserId(owner.getId());
-        page.setPageAccessToken(tokenCryptoService.encrypt(pageInfo.accessToken()));
+        page.setPageAccessToken(pageInfo.accessToken());
         page.setPagePermissions(pageInfo.tasks() == null ? List.of() : new ArrayList<>(pageInfo.tasks()));
         page.setTokenStatus(FbPage.TokenStatus.ACTIVE);
         page.setConnectionStatus(FbPage.ConnectionStatus.CONNECTED);

@@ -14,7 +14,7 @@ import vn.ezisolutions.cloud.facebook_service.gateway.facebook.FacebookUserGatew
 import vn.ezisolutions.cloud.facebook_service.repositories.facebook.FbPageClientRepository;
 import vn.ezisolutions.cloud.facebook_service.repositories.facebook.FbPageRepository;
 import vn.ezisolutions.cloud.facebook_service.repositories.facebook.FbUserRepository;
-import vn.ezisolutions.cloud.facebook_service.services.security.TokenCryptoService;
+import org.springframework.web.client.RestTemplate;
 
 import java.util.List;
 import java.util.Optional;
@@ -31,18 +31,18 @@ class FacebookPageConnectServiceTest {
     private final FbUserRepository userRepository = mock(FbUserRepository.class);
     private final FbPageRepository pageRepository = mock(FbPageRepository.class);
     private final FbPageClientRepository pageClientRepository = mock(FbPageClientRepository.class);
-    private final TokenCryptoService tokenCryptoService = new TokenCryptoService("test-secret");
+    private final RestTemplate facebookRestTemplate = mock(RestTemplate.class);
     private final FacebookPageConnectService service = new FacebookPageConnectService(
             userGateway,
             pageGateway,
             userRepository,
             pageRepository,
             pageClientRepository,
-            tokenCryptoService
+            facebookRestTemplate
     );
 
     @Test
-    void connectSavesUserPagesAndPageClientWithEncryptedTokens() throws Exception {
+    void connectSavesUserPagesAndPageClientWithPlainTokens() throws Exception {
         AuthorizedUser owner = AuthorizedUser.builder().id("demo-user").name("Demo").username("demo").build();
         when(userGateway.getMe("id,name", "user-token"))
                 .thenReturn(new FbUserProfileResponse("fb-user-1", "Facebook User"));
@@ -55,7 +55,7 @@ class FacebookPageConnectServiceTest {
         when(pageGateway.getUserPages(eq("Bearer user-token"), anyString(), eq(100)))
                 .thenReturn(new FbPagesDataResponse(List.of(
                         new FbPageInfoResponse("page-1", "Page One", "page-token", "Community", List.of("MESSAGING"))
-                )));
+                ), null));
         when(pageRepository.findByFbPageId("page-1")).thenReturn(Optional.empty());
         when(pageRepository.save(any(FbPage.class))).thenAnswer(invocation -> {
             FbPage page = invocation.getArgument(0);
@@ -73,14 +73,13 @@ class FacebookPageConnectServiceTest {
         ArgumentCaptor<FbUser> userCaptor = ArgumentCaptor.forClass(FbUser.class);
         verify(userRepository).save(userCaptor.capture());
         assertEquals("fb-user-1", userCaptor.getValue().getFbUserId());
-        assertNotEquals("user-token", userCaptor.getValue().getAccessTokenEncrypted());
-        assertEquals("user-token", tokenCryptoService.decrypt(userCaptor.getValue().getAccessTokenEncrypted()));
+        assertEquals("user-token", userCaptor.getValue().getAccessToken());
 
         ArgumentCaptor<FbPage> pageCaptor = ArgumentCaptor.forClass(FbPage.class);
         verify(pageRepository).save(pageCaptor.capture());
         assertEquals("page-1", pageCaptor.getValue().getFbPageId());
         assertEquals(FbPage.ConnectionStatus.CONNECTED, pageCaptor.getValue().getConnectionStatus());
-        assertEquals("page-token", tokenCryptoService.decrypt(pageCaptor.getValue().getPageAccessTokenEncrypted()));
+        assertEquals("page-token", pageCaptor.getValue().getPageAccessToken());
 
         verify(pageGateway).subscribePageWebhook(eq("Bearer page-token"), eq("page-1"), anyString());
         verify(pageClientRepository).save(any(FbPageClient.class));

@@ -9,7 +9,6 @@ import vn.ezisolutions.cloud.facebook_service.entity.facebook.FbPage;
 import vn.ezisolutions.cloud.facebook_service.entity.facebook.FbUser;
 import vn.ezisolutions.cloud.facebook_service.repositories.facebook.FbPageRepository;
 import vn.ezisolutions.cloud.facebook_service.repositories.facebook.FbUserRepository;
-import vn.ezisolutions.cloud.facebook_service.services.security.TokenCryptoService;
 
 @Service
 @RequiredArgsConstructor
@@ -18,7 +17,6 @@ public class FacebookTokenService {
     private final FbPageRepository fbPageRepository;
     private final FbUserRepository fbUserRepository;
     private final FacebookCacheService cacheService;
-    private final TokenCryptoService tokenCryptoService;
     private static final String EMPTY_TOKEN_MARKER = RedisKeys.EMPTY_TOKEN_MARKER;
 
     private final Object pageTokenLock = new Object();
@@ -44,7 +42,6 @@ public class FacebookTokenService {
             String token = fbPageRepository.findByFbPageId(pageId)
                     .filter(page -> page.getTokenStatus() == FbPage.TokenStatus.ACTIVE)
                     .map(FbPage::getPageAccessToken)
-                    .map(tokenCryptoService::decrypt)
                     .orElse(null);
 
             cachePageTokenSafely(pageId, token);
@@ -70,7 +67,6 @@ public class FacebookTokenService {
             log.info("Fetching User Token từ Database cho User: {}", fbUserId);
             String token = fbUserRepository.findByFbUserId(fbUserId)
                     .map(FbUser::getAccessToken)
-                    .map(tokenCryptoService::decrypt)
                     .orElse(null);
 
             cacheUserTokenSafely(fbUserId, token);

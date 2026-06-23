@@ -52,6 +52,16 @@ public class FacebookOAuthService {
             String error,
             String errorDescription
     ) throws CustomException {
+        return handleCallback(code, state, error, errorDescription, null);
+    }
+
+    public FacebookOAuthExchangeResponse handleCallback(
+            String code,
+            String state,
+            String error,
+            String errorDescription,
+            AuthorizedUser requestOwner
+    ) throws CustomException {
         if (error != null && !error.isBlank()) {
             return FacebookOAuthExchangeResponse.error(code, state, error, errorDescription);
         }
@@ -60,7 +70,8 @@ public class FacebookOAuthService {
         }
 
         FacebookOAuthTokenResponse token = exchangeCode(code);
-        AuthorizedUser owner = state == null ? null : stateOwners.remove(state);
+        AuthorizedUser stateOwner = state == null ? null : stateOwners.remove(state);
+        AuthorizedUser owner = requestOwner != null ? requestOwner : stateOwner;
         if (owner == null) {
             return new FacebookOAuthExchangeResponse(code, state, null, null, true, false, List.of());
         }

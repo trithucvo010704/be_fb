@@ -60,6 +60,34 @@ class FacebookOAuthServiceTest {
         verify(pageConnectService).connect("user-token", owner);
     }
 
+    @Test
+    void handleCallbackUsesRequestOwnerWhenStateHasNoOwner() throws Exception {
+        FacebookOAuthService service = new FacebookOAuthService(properties(), oauthGateway, pageConnectService);
+        AuthorizedUser owner = AuthorizedUser.builder().id("demo").name("Demo").build();
+        String anonymousState = service.buildAuthorizationUrl().state();
+        when(oauthGateway.exchangeCode("app-id", "secret", "https://example.com/callback", "code-2"))
+                .thenReturn(new FacebookOAuthTokenResponse("user-token-2", "bearer", 3600L));
+        when(pageConnectService.connect("user-token-2", owner))
+                .thenReturn(List.of(new FacebookConnectedPageResponse(
+                        UUID.randomUUID(),
+                        "page-2",
+                        "Page 2",
+                        "Community",
+                        "ACTIVE",
+                        "CONNECTED",
+                        true,
+                        List.of(),
+                        List.of()
+                )));
+
+        var response = service.handleCallback("code-2", anonymousState, null, null, owner);
+
+        assertTrue(response.exchanged());
+        assertTrue(response.connected());
+        assertEquals(1, response.pages().size());
+        verify(pageConnectService).connect("user-token-2", owner);
+    }
+
     private FacebookProperties properties() {
         FacebookProperties properties = new FacebookProperties();
         properties.setAppId("app-id");

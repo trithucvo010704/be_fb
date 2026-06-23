@@ -24,11 +24,18 @@ public class FacebookOAuthController {
 
     @GetMapping("/callback")
     public BaseResponse callback(
+            @RequestHeader(value = "Authorization", required = false) String authorization,
             @RequestParam(value = "code", required = false) String code,
             @RequestParam(value = "state", required = false) String state,
             @RequestParam(value = "error", required = false) String error,
             @RequestParam(value = "error_description", required = false) String errorDescription) throws CustomException {
-        return BaseResponse.success(oauthService.handleCallback(code, state, error, errorDescription));
+        return BaseResponse.success(oauthService.handleCallback(
+                code,
+                state,
+                error,
+                errorDescription,
+                resolveAuthorizedUser(authorization).orElse(null)
+        ));
     }
 
     private Optional<AuthorizedUser> resolveAuthorizedUser(String authorization) {
